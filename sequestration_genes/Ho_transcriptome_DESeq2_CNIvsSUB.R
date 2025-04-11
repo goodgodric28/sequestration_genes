@@ -1,7 +1,7 @@
 ####################################
 # Ho_transcriptome_DESeq2_CNIvsSUB.R
 # Written by: Jessica A. Goodheart
-# Last Updated: 9 February 2025
+# Last Updated: 3 April 2025
 # Purpose: To analyze differential expression data from Hermissenda and compare with Berghia
 ####################################
 
@@ -275,11 +275,11 @@ dev.off()
 ## Connect Hermissenda to Berghia
 #######################################
 # Hermissenda data
-diff_genes <- read.csv(file = "Ho_tissues_DESeq2_CNIvsSUB-diffexpr_results_padj0.1.csv", row.names="X")
+diff_genes <- read.csv(file = "Ho_tissues_DESeq2_CNIvsSUB-DCupreg-normalized-counts-sorted.csv", row.names="X")
 colnames(diff_genes)[1] <- "protein_id"
 
 # Pull in full OrthoFinder results with Berghia and modify df for use
-Bs.diffexp.data <- read.csv("inputs/Bs_tissues_distceras_DESeq2-upregulated-stats-filtered.csv")
+11 <- read.csv("inputs/Bs_tissues_DCvPC_DESeq2-DCupreg-normalized-counts-sorted.csv")
 OF.data <- read.delim("inputs/Orthogroups.tsv", sep="\t")
 OF.data.sub.allData <- OF.data[,c(1,10,29)]
 OF.data.sub.bothSpOnly <- OF.data.sub.allData[!OF.data.sub.allData$Berghia_stephanieae_brakerRMplusISO==""|OF.data.sub.allData$Hermissenda_crassicornis=="", ] 
@@ -299,14 +299,14 @@ diff_exp_genes.subOF.Ho <- diff_genes[diff_genes$protein_id %in% OF.data.sub.dif
 write.csv(diff_exp_genes.subOF.Ho, file=paste0(outputPrefix, "-diff_exp_genes_subOF_Ho.csv"))
 
 # Subset df for only upregulated genes in one taxon - Berghia
-OF.data.sub.diffgenes.Bs <- OF.data.sub.bothSpOnly.split[OF.data.sub.bothSpOnly.split$Berghia_stephanieae_brakerRMplusISO %in% Bs.diffexp.data$Row.names,]
+OF.data.sub.diffgenes.Bs <- OF.data.sub.bothSpOnly.split[OF.data.sub.bothSpOnly.split$Berghia_stephanieae_brakerRMplusISO %in% Bs.diffexp.data$gene,]
 write.csv(OF.data.sub.diffgenes.Bs, file=paste0(outputPrefix, "-orthofinder_subset_Bs_diffexp.csv"))
 
-diff_exp_genes.subOF.Bs <- Bs.diffexp.data[Bs.diffexp.data$Row.names %in% OF.data.sub.diffgenes.Bs$Berghia_stephanieae_brakerRMplusISO,]
+diff_exp_genes.subOF.Bs <- Bs.diffexp.data[Bs.diffexp.data$gene %in% OF.data.sub.diffgenes.Bs$Berghia_stephanieae_brakerRMplusISO,]
 write.csv(diff_exp_genes.subOF.Bs, file=paste0(outputPrefix, "-diff_exp_genes_subOF_Bs.csv"))
 
 # Subset df for only upregulated genes in both taxa
-OF.data.sub.diffgenes.Ho.Bs <- OF.data.sub.diffgenes.Ho[OF.data.sub.diffgenes.Ho$Berghia_stephanieae_brakerRMplusISO %in% Bs.diffexp.data$Row.names,]
+OF.data.sub.diffgenes.Ho.Bs <- OF.data.sub.diffgenes.Ho[OF.data.sub.diffgenes.Ho$Berghia_stephanieae_brakerRMplusISO %in% Bs.diffexp.data$gene,]
 write.csv(OF.data.sub.diffgenes.Ho.Bs, file=paste0(outputPrefix, "-orthofinder_subset_HoBs_diffexp.csv"))
 
 #### FOR BOTH SPECIES ###
@@ -323,9 +323,29 @@ colnames(Bs.annot.data.sub)[1] <- "Berghia_stephanieae_brakerRMplusISO"
 OF.data.HoBs.annot <- left_join(OF.data.sub.diffgenes.Ho.Bs,Bs.annot.data.sub,
                                 by = "Berghia_stephanieae_brakerRMplusISO")
 OF.data.HoBs.annot.sorted <- OF.data.HoBs.annot[order(match(OF.data.HoBs.annot$Berghia_stephanieae_brakerRMplusISO,
-                                                            diff_exp_genes.subOF.Bs$Row.names)),]
+                                                            diff_exp_genes.subOF.Bs$gene)),]
+logdata <- c()
+for (x in OF.data.HoBs.annot.sorted$Berghia_stephanieae_brakerRMplusISO) {
+  l <- diff_exp_genes.subOF.Bs$log2FoldChange[grep(paste0("^",x,"$"), diff_exp_genes.subOF.Bs$gene)]
+  logdata <- c(logdata,l)
+}
+
+OF.data.HoBs.annot.sorted$log2FoldChange <- logdata
+OF.data.HoBs.annot.sorted <- OF.data.HoBs.annot.sorted[,c(1:3,10,4:9)]
+
 write.csv(OF.data.HoBs.annot.sorted, file=paste0(outputPrefix, "orthofinder_subset_HoBs_diffexp_with_annot_sorted.csv"), row.names = F)
 write.table(unique(OF.data.HoBs.annot$Orthogroup), file=paste0(outputPrefix, "-OF_clusters_HoBs.txt"), row.names=F, col.names=F, quote=F)
+
+OF.data.HoBs.annot.sorted.clean <- OF.data.HoBs.annot.sorted[,c(1,4:5,8)]
+OF.data.HoBs.annot.sorted.clean <- OF.data.HoBs.annot.sorted %>% 
+  group_by(Orthogroup) %>% 
+  summarise(log2FoldChange=max(log2FoldChange),
+            db_ids = paste(unique(db_id), collapse = ","),
+            Protein.names = paste(unique(Protein.names), collapse = ","))
+
+OF.data.HoBs.annot.sorted.clean <-OF.data.HoBs.annot.sorted.clean[order(OF.data.HoBs.annot.sorted.clean$log2FoldChange),]
+write.csv(OF.data.HoBs.annot.sorted.clean, file=paste0(outputPrefix, "orthofinder_subset_HoBs_diffexp_with_annot_sorted_clean.csv"), row.names = F)
+
 
 #### FOR HO ONLY ###
 # List of orthogroups with their respective annotations based on Berghia stephanieae genome
@@ -338,7 +358,8 @@ colnames(Bs.annot.data.sub.Ho)[1] <- "Berghia_stephanieae_brakerRMplusISO"
 OF.data.Ho.annot <- left_join(OF.data.sub.diffgenes.Ho,Bs.annot.data.sub.Ho,
                                 by = "Berghia_stephanieae_brakerRMplusISO")
 OF.data.Ho.annot.sorted <- OF.data.Ho.annot[order(match(OF.data.Ho.annot$Berghia_stephanieae_brakerRMplusISO,
-                                                            diff_exp_genes.subOF.Bs$Row.names)),]
+                                                            diff_exp_genes.subOF.Bs$gene)),]
+
 write.csv(OF.data.Ho.annot.sorted, file=paste0(outputPrefix, "-orthofinder_subset_HoONLY_diffexp_with_annot_sorted.csv"), row.names = F)
 write.table(unique(OF.data.Ho.annot$Orthogroup), file=paste0(outputPrefix, "-OF_clusters_HoONLY.txt"), row.names=F, col.names=F, quote=F)
 
@@ -378,19 +399,20 @@ for (x in 1:nrow(OF.data.HoBs.annot.sorted)) {
   Ho <- OF.data.HoBs.annot.sorted$Hermissenda_crassicornis[x]
   
   # Berghia
-  r.Bs <- grep(Bs, Bs.diffexp.data$Row.names)
-  c.Bs <- as.vector(t(Bs.diffexp.data[r.Bs,c(10:12,18:20)]))
+  r.Bs <- grep(Bs, Bs.diffexp.data$gene)
+  c.Bs <- as.vector(t(Bs.diffexp.data[r.Bs,c(8:13)]))
   
   # Hermissenda
   r.Ho <- grep(Ho, diff_genes$protein_id)
-  c.Ho <- as.vector(sort(t(diff_genes[r.Ho,8:21]), decreasing=TRUE))
+  c.Ho <- as.vector(t(diff_genes[r.Ho,8:21]))
   counts.data <- append(c.Bs, c.Ho)
   
   # All Counts
   counts.data <- data.frame(counts.data)
   counts.data$Species <- c(rep("Bs",6),rep("Ho",14))
   counts.data$Tissue <- c(rep("Distal",3),rep("Proximal",3),
-                          rep("Distal",7),rep("Proximal",7))
+                          "Distal","Proximal","Distal","Proximal","Distal","Proximal","Distal","Proximal",
+                          "Distal","Proximal","Distal","Proximal","Distal","Proximal")
   
   # Summary
   counts.summary <- counts.data %>% group_by(Species, Tissue) %>% summarize(mean_counts=mean(counts.data), sd_counts=sd(counts.data))
