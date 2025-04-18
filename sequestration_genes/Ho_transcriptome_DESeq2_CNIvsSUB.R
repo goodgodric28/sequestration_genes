@@ -1,7 +1,7 @@
 ####################################
 # Ho_transcriptome_DESeq2_CNIvsSUB.R
 # Written by: Jessica A. Goodheart
-# Last Updated: 3 April 2025
+# Last Updated: 17 April 2025
 # Purpose: To analyze differential expression data from Hermissenda and compare with Berghia
 ####################################
 
@@ -9,7 +9,7 @@
 # Initial setup
 ####################################
 # Set the working directory
-directory <- "[DIRECTORY]"
+directory <- "/Users/jessicagoodheart/Library/CloudStorage/OneDrive-AMNH/Goodheart/1_Research/1_Projects_and_Papers/1_Berghia/berghia_cnidosac_genes/Hermissenda/DE_analysis"
 setwd(directory)
 
 outputPrefix <- "Ho_tissues_DESeq2_CNIvsSUB"
@@ -77,11 +77,14 @@ write.csv(resdata, file = paste0(outputPrefix, "-full-normalized-counts.csv"), q
 resdata.2 <- resdata[order(resdata$padj),]
 write.csv(resdata.2, file = paste0(outputPrefix, "-full-normalized-counts-sorted.csv"), quote=FALSE, row.names=FALSE)
 
-resdata.3 <- subset(resdata.2,resdata.2$log2FoldChange < 0)
+resdata.3 <- subset(resdata.2,resdata.2$log2FoldChange < -2)
 write.csv(resdata.3, file = paste0(outputPrefix, "-DCupreg-normalized-counts-sorted.csv"), quote=FALSE, row.names=FALSE)
 
-resdata.4 <- subset(resdata.2,resdata.2$log2FoldChange > 0)
+resdata.4 <- subset(resdata.2,resdata.2$log2FoldChange > 2)
 write.csv(resdata.4, file = paste0(outputPrefix, "-PCupreg-normalized-counts-sorted.csv"), quote=FALSE, row.names=FALSE)
+
+resdata.5 <- subset(resdata.3,resdata.3$padj < 0.05)
+write.csv(resdata.5, file = paste0(outputPrefix, "-DCupreg-padj_normalized-counts-sorted.csv"), quote=FALSE, row.names=FALSE)
 
 # order results by padj value (most significant to least)
 res <- res[order(res$padj), ]
@@ -275,11 +278,11 @@ dev.off()
 ## Connect Hermissenda to Berghia
 #######################################
 # Hermissenda data
-diff_genes <- read.csv(file = "Ho_tissues_DESeq2_CNIvsSUB-DCupreg-normalized-counts-sorted.csv", row.names="X")
+diff_genes <- read.csv("Ho_tissues_DESeq2_CNIvsSUB-DCupreg-padj_normalized-counts-sorted.csv", row.names = NULL)
 colnames(diff_genes)[1] <- "protein_id"
 
 # Pull in full OrthoFinder results with Berghia and modify df for use
-11 <- read.csv("inputs/Bs_tissues_DCvPC_DESeq2-DCupreg-normalized-counts-sorted.csv")
+Bs.diffexp.data<- read.csv("inputs/Bs_tissues_DCvPC_DESeq2-DCupreg-normalized-counts-sorted.csv")
 OF.data <- read.delim("inputs/Orthogroups.tsv", sep="\t")
 OF.data.sub.allData <- OF.data[,c(1,10,29)]
 OF.data.sub.bothSpOnly <- OF.data.sub.allData[!OF.data.sub.allData$Berghia_stephanieae_brakerRMplusISO==""|OF.data.sub.allData$Hermissenda_crassicornis=="", ] 
